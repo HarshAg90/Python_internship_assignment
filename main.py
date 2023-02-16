@@ -1,4 +1,5 @@
 from alpha_vantage.timeseries import TimeSeries
+from pyalgotrading import plot_candles
 import pandas
 import copy
 
@@ -36,7 +37,7 @@ def indicator1(df,timeperiod:int):
             df_new.at[i,"indicator"] = "NAN"
         else:
             try:
-                df_new.at[i,"indicator"] = sum(df["indicator"].iloc[i-timeperiod : i+1])/timeperiod
+                df_new.at[i,"indicator"] =round( sum(df["indicator"].iloc[i-timeperiod : i])/timeperiod , 2)
             except:
                 print(i,type(i))
     return df_new
@@ -53,7 +54,8 @@ class Strategy:
         self.data = None
         self.predictor = None
         self.signal = None
-        self.timeperiod= 5
+        self.timeperiod = 5
+
     def get_script_data(self):
         data_obj = ScriptData()
         data_obj.fetch_intraday_data(self.id)
@@ -64,20 +66,33 @@ class Strategy:
         self.signal = copy.copy(self.predictor)
         self.signal.rename(columns={"indicator":"signal"},inplace=True)
 
-        for i in range(self.timeperiod+1,len( self.signal["timestamp"])):
-            # try:
-                if self.data["close"].iloc[i+1] < self.predictor["indicator"].iloc[i] and self.data["close"].iloc[i-1] > self.predictor["indicator"].iloc[i] and self.data["close"].iloc[i] == self.predictor["indicator"].iloc[i]:
+        for i in range(self.timeperiod+1,len( self.signal["timestamp"])-1):
+            try:
+                # print(self.data["close"].iloc[i+1])
+                # print(self.data["close"].iloc[i-1])
+                # print(self.data["close"].iloc[i])
+                # print(self.predictor["indicator"].iloc[i])
+
+                if (self.data["close"].iloc[i+1] < self.predictor["indicator"].iloc[i] or self.data["close"].iloc[i-1] > self.predictor["indicator"].iloc[i]) and self.data["close"].iloc[i] == self.predictor["indicator"].iloc[i]:
                     self.signal.at[i,"signal"] = "BUY"
-                elif self.data["close"].iloc[i+1] > self.predictor["indicator"].iloc[i] and self.data["close"].iloc[i-1] < self.predictor["indicator"].iloc[i] and self.data["close"].iloc[i] == self.predictor["indicator"].iloc[i]:
+                    # print("buy")
+
+                elif (self.data["close"].iloc[i+1] > self.predictor["indicator"].iloc[i] or self.data["close"].iloc[i-1] < self.predictor["indicator"].iloc[i]) and self.data["close"].iloc[i] == self.predictor["indicator"].iloc[i]:
                     self.signal.at[i,"signal"] = "SELL"
+                    # print("SELL")
+
                 elif self.data["close"].iloc[i] != self.predictor["indicator"].iloc[i]:
                     self.signal.at[i,"signal"] = "NO_SIGNAL"
+
                 else:
                     print("did not work")      
-            # except:
-            #     print(i)
+            except:
+                print(i)
     def get_signals(self):
         return self.signal
-strategy = Strategy("GOOGL")
+    
+
+strategy = Strategy("NVDA")
 strategy.get_script_data()
-print(strategy.get_signals()[90:120])
+df = strategy.get_signals()
+plot_candles(df)
